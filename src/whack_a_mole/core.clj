@@ -1,6 +1,10 @@
 (ns whack-a-mole.core
   (:gen-class))
 
+(def board (atom (vec (repeat 10 (vec (repeat 10 "*"))))))
+(def tries (atom 50))
+(def moles (atom 10))
+
 (defn ask-input
   []
   (let [[result ex] (try
@@ -12,33 +16,45 @@
       result
       (recur))))
 
-(defn make-grid
-  []
-  (vec (repeat 10 (vec (repeat 10 "*")))))
-
 (defn place-moles
-  ([board]
-   (place-moles board 10))
-  ([board n]
-   (let [x (rand-int 10)
-         y (rand-int 10)
-         open? (= "*" (get-in board [x y]))]
-     (if (zero? n)
-       board
-       (recur (assoc-in board [x y] "M") (dec n))))))
+  []
+  (loop [n 10]
+    (println n)
+    (let [x (rand-int 10)
+          y (rand-int 10)
+          open? (= "*" (get-in @board [x y]))]
+      (cond
+        (and (pos? n) open?)
+        (do
+          (swap! board assoc-in [x,y] "M")
+          (recur (dec n)))
+
+        (pos? n)
+        (recur n)
+
+        :else
+        @board))))
 
 (defn whack
-  [board x y]
-  (let [spot (get-in board [x y])]
+  [x y]
+  (let [spot (get-in @board [x y])]
+    (swap! tries dec)
     (cond
-      (= "*" spot) (assoc-in board [x y] "W")
-      (= "M" spot) (assoc-in board [x y] "X")
-      :else board)))
+      (= "*" spot) (swap! board assoc-in [x y] "W")
+      (= "M" spot)
+      (do
+        (swap! board assoc-in [x y] "X")
+        (swap! moles dec))
+      :else @board)))
 
 (defn -main
   "Main function for whackin moles"
   [& args]
-  (let [board (place-moles (make-grid))]
-    (loop [board board x (ask-input) y (ask-input)]
-      (println board)
-      (recur (whack board x y) (ask-input) (ask-input)))))
+  (place-moles)
+  (loop [x (ask-input) y (ask-input)]
+    (if (and (= x -1) (= y -1))
+      (println "Thanks for playing")
+      (do
+        (whack x y)
+        (println @board)
+        (recur (ask-input) (ask-input))))))
